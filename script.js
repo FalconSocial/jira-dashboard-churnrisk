@@ -16,7 +16,7 @@ define("_ujgChurnRiskRegister", [ "jquery", "_ujgUtil" ], function($, util) {
         var accountid = window.accountid;
         var accountname = window.accountname;
         console.log(accountid,accountname);
-        $('#org-title').html(accountname+'  ('+accountid+')');
+        $('#org-title').html(unescape(accountname)+'  ('+accountid+')');
         for(var i=0;i<jira_data.total;i++){
           if(jira_data.issues[i].fields.customfield_13209 === null){
             var churnids = "";
