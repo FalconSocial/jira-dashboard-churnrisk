@@ -69,6 +69,7 @@ define("_ujgChurnRiskRegister", [ "jquery", "_ujgUtil" ], function($, util) {
   });
 
   //Update the churn risk field with the AccountID or remove the AccountID from there depending on the action
+  //Function outside of the widget, so it can be accessed by the client on button press. USE DOM to pass values.
   function updateChurnRisk(key,field,accountid){
     
     //TODO: LIMIT IT TO 3-5 risk maximum!
