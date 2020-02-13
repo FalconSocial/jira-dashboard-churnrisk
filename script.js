@@ -24,6 +24,11 @@ define("_ujgChurnRiskRegister", [ "jquery", "_ujgUtil" ], function($, util) {
             var churnids = jira_data.issues[i].fields.customfield_13209;
           }
           if(churnids !== "" && churnids.includes(accountid)){
+            //Increase data marker for limiting the max number of registered churn risks
+            var counter = $('#churnTable').data("maxregister");
+            counter++;
+            $('#churnTable').data("maxregister", counter);
+
             $('#churnTable > tbody:last-child').append('<tr id="tr-'+jira_data.issues[i].key+'" class="table-warning"><th scope="row"><a target="_blank" href="https://falconio.atlassian.net/browse/'+jira_data.issues[i].key+'">'+jira_data.issues[i].key+'</a></th><td>'+jira_data.issues[i].fields.summary+'</td><td>'+jira_data.issues[i].fields.status.name+'</td><td><button data-mark=0 onclick="updateChurnRisk(\''+jira_data.issues[i].key+'\',\''+churnids+'\',\''+accountid+'\')" id="btn-'+jira_data.issues[i].key+'" type="button" class="btn btn-primary btn-sm">Remove risk</button></td></tr>');
           }else{
             $('#churnTable > tbody:last-child').append('<tr id="tr-'+jira_data.issues[i].key+'"><th scope="row"><a target="_blank" href="https://falconio.atlassian.net/browse/'+jira_data.issues[i].key+'">'+jira_data.issues[i].key+'</a></th><td>'+jira_data.issues[i].fields.summary+'</td><td>'+jira_data.issues[i].fields.status.name+'</td><td><button data-mark=1 onclick="updateChurnRisk(\''+jira_data.issues[i].key+'\',\''+churnids+'\',\''+accountid+'\')" id="btn-'+jira_data.issues[i].key+'" type="button" class="btn btn-warning btn-sm">Register risk</button></td></tr>');
@@ -79,37 +84,46 @@ define("_ujgChurnRiskRegister", [ "jquery", "_ujgUtil" ], function($, util) {
     var account = accountid;
 
     if(mark){
-      console.log("It will be marked for churn...");
-      field = field+account+', ';
-      var sajt = {
-        "fields" : {
-            "customfield_13209" : field,
-        }
-      };
-      console.log(JSON.stringify(sajt));
-      //Field 13209 --> churn ids
-      AP.request({
-        url: '/rest/api/latest/issue/'+key,
-        type: 'PUT',
-        contentType: 'application/json',
-        headers: {
-          'Accept': 'application/json'
-        },
-        data: JSON.stringify(sajt),
-        success: function(responseText){
-          console.log("Successfully marked...");
-          console.log(responseText);
-          $('#tr-'+key).toggleClass("table-warning");
-          $('#btn-'+key).toggleClass("btn-warning");
-          $('#btn-'+key).toggleClass("btn-primary");
-          $('#btn-'+key).html("Remove risk");
-          $('#btn-'+key).data("mark", 0);
-        },
-        error: function(xhr, statusText, errorThrown){
-          console.log(arguments);
-        }
-      });
-    
+      if($('#churnTable').data("maxregister") >= 3){
+        console.log("Cannot register more then 3 churn risk...")
+        alert("Max number of churn risk (3) is registered!");
+      }else{
+        console.log("It will be marked for churn...");
+        field = field+account+', ';
+        var sajt = {
+          "fields" : {
+              "customfield_13209" : field,
+          }
+        };
+        console.log(JSON.stringify(sajt));
+        //Field 13209 --> churn ids
+        AP.request({
+          url: '/rest/api/latest/issue/'+key,
+          type: 'PUT',
+          contentType: 'application/json',
+          headers: {
+            'Accept': 'application/json'
+          },
+          data: JSON.stringify(sajt),
+          success: function(responseText){
+            console.log("Successfully marked...");
+            console.log(responseText);
+
+            $('#tr-'+key).toggleClass("table-warning");
+            $('#btn-'+key).toggleClass("btn-warning");
+            $('#btn-'+key).toggleClass("btn-primary");
+            $('#btn-'+key).html("Remove risk");
+            $('#btn-'+key).data("mark", 0);
+
+            var  counter = $('#churnTable').data("maxregister");
+            counter++;
+            $('#churnTable').data("maxregister",counter);
+          },
+          error: function(xhr, statusText, errorThrown){
+            console.log(arguments);
+          }
+        });
+      }
     }else{
       console.log("Churn mark will be deleted...");
       field = field.replace(account+', ','');
@@ -130,11 +144,17 @@ define("_ujgChurnRiskRegister", [ "jquery", "_ujgUtil" ], function($, util) {
         success: function(responseText){
           console.log("Successfully unmarked...");
           console.log(responseText);
+
           $('#tr-'+key).toggleClass("table-warning");
           $('#btn-'+key).toggleClass("btn-warning");
           $('#btn-'+key).toggleClass("btn-primary");
           $('#btn-'+key).html("Register risk");
           $('#btn-'+key).data("mark", 1);
+
+          var  counter = $('#churnTable').data("maxregister");
+          if(counter>0)
+            counter--;
+          $('#churnTable').data("maxregister",counter);
         },
         error: function(xhr, statusText, errorThrown){
           console.log(arguments);
