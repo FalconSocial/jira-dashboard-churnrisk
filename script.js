@@ -1,7 +1,7 @@
 var gdata;
 define("_ujgChurnRiskRegister", [ "jquery", "_ujgUtil" ], function($, util) {
     var ChurnRegisterGadget = function(API) {
-
+    
       //Used to query URL parameters into a variable (e.g.: accountid)
       const getQueryParams = ( params, url ) => {
         let href = url;
@@ -11,28 +11,26 @@ define("_ujgChurnRiskRegister", [ "jquery", "_ujgUtil" ], function($, util) {
         return queryString ? queryString[1] : null;
       };
 
-      var updateChurnRisk = function(mark,key){
-        if(mark){
-
-        }else{
-
-        }
-      };
-
       //Function that is called after successfull API call with a list of issues to show in the table
       var sortInfo = function(jira_data){
         var accountid = window.accountid;
         var accountname = window.accountname;
         console.log(accountid,accountname);
-        $('#org-title').html(accountname);
+        $('#org-title').html(accountname+'  ('+accountid+')');
         for(var i=0;i<jira_data.total;i++){
-          var churnids = jira_data.issues[i].fields.customfield_13209;
-          if(churnids !== null && churnids.includes(accountid)){
-            $('#churnTable > tbody:last-child').append('<tr id="btn-'+jira_data.issues[i].key+'" class="table-warning"><th scope="row"><a target="_blank" href="https://falconio.atlassian.net/browse/'+jira_data.issues[i].key+'">'+jira_data.issues[i].key+'</a></th><td>'+jira_data.issues[i].fields.summary+'</td><td>'+jira_data.issues[i].fields.status.name+'</td><td><button id="btn-'+jira_data.issues[i].key+'" type="button" class="btn btn-primary btn-sm">Remove risk</button></td></tr>');
+          if(jira_data.issues[i].fields.customfield_13209 === null){
+            var churnids = "";
           }else{
-            $('#churnTable > tbody:last-child').append('<tr id="btn-'+jira_data.issues[i].key+'"><th scope="row"><a target="_blank" href="https://falconio.atlassian.net/browse/'+jira_data.issues[i].key+'">'+jira_data.issues[i].key+'</a></th><td>'+jira_data.issues[i].fields.summary+'</td><td>'+jira_data.issues[i].fields.status.name+'</td><td><button id="btn-'+jira_data.issues[i].key+'" type="button" class="btn btn-warning btn-sm">Register risk</button></td></tr>');
+            var churnids = jira_data.issues[i].fields.customfield_13209;
+          }
+          if(churnids !== "" && churnids.includes(accountid)){
+            $('#churnTable > tbody:last-child').append('<tr id="tr-'+jira_data.issues[i].key+'" class="table-warning"><th scope="row"><a target="_blank" href="https://falconio.atlassian.net/browse/'+jira_data.issues[i].key+'">'+jira_data.issues[i].key+'</a></th><td>'+jira_data.issues[i].fields.summary+'</td><td>'+jira_data.issues[i].fields.status.name+'</td><td><button data-mark=0 onclick="updateChurnRisk(\''+jira_data.issues[i].key+'\',\''+churnids+'\',\''+accountid+'\')" id="btn-'+jira_data.issues[i].key+'" type="button" class="btn btn-primary btn-sm">Remove risk</button></td></tr>');
+          }else{
+            $('#churnTable > tbody:last-child').append('<tr id="tr-'+jira_data.issues[i].key+'"><th scope="row"><a target="_blank" href="https://falconio.atlassian.net/browse/'+jira_data.issues[i].key+'">'+jira_data.issues[i].key+'</a></th><td>'+jira_data.issues[i].fields.summary+'</td><td>'+jira_data.issues[i].fields.status.name+'</td><td><button data-mark=1 onclick="updateChurnRisk(\''+jira_data.issues[i].key+'\',\''+churnids+'\',\''+accountid+'\')" id="btn-'+jira_data.issues[i].key+'" type="button" class="btn btn-warning btn-sm">Register risk</button></td></tr>');
           }
         }
+        //Resize the actualy widget size, so the new content will fit in the view.
+        API.resize();
       };
 
 
@@ -69,3 +67,77 @@ define("_ujgChurnRiskRegister", [ "jquery", "_ujgUtil" ], function($, util) {
     };
     return ChurnRegisterGadget;
   });
+
+  //Update the churn risk field with the AccountID or remove the AccountID from there depending on the action
+  function updateChurnRisk(key,field,accountid){
+    
+    //TODO: LIMIT IT TO 3-5 risk maximum!
+    console.log("-->Start updating...");
+    var mark = $("#btn-"+key).data("mark");
+    console.log(mark);
+    var account = accountid;
+
+    if(mark){
+      console.log("It will be marked for churn...");
+      field = field+account+', ';
+      var sajt = {
+        "fields" : {
+            "customfield_13209" : field,
+        }
+      };
+      console.log(JSON.stringify(sajt));
+      //Field 13209 --> churn ids
+      AP.request({
+        url: '/rest/api/latest/issue/'+key,
+        type: 'PUT',
+        contentType: 'application/json',
+        headers: {
+          'Accept': 'application/json'
+        },
+        data: JSON.stringify(sajt),
+        success: function(responseText){
+          console.log("Successfully marked...");
+          console.log(responseText);
+          $('#tr-'+key).toggleClass("table-warning");
+          $('#btn-'+key).toggleClass("btn-warning");
+          $('#btn-'+key).toggleClass("btn-primary");
+          $('#btn-'+key).html("Remove risk");
+          $('#btn-'+key).data("mark", 0);
+        },
+        error: function(xhr, statusText, errorThrown){
+          console.log(arguments);
+        }
+      });
+    
+    }else{
+      console.log("Churn mark will be deleted...");
+      field = field.replace(account+', ','');
+      var sajt = {
+        "fields" : {
+            "customfield_13209" : field,
+        }
+      };
+      console.log(JSON.stringify(sajt));
+      AP.request({
+        url: '/rest/api/2/issue/'+key,
+        type: 'PUT',
+        contentType: 'application/json',
+        headers: {
+          'Accept': 'application/json'
+        },
+        data: JSON.stringify(sajt),
+        success: function(responseText){
+          console.log("Successfully unmarked...");
+          console.log(responseText);
+          $('#tr-'+key).toggleClass("table-warning");
+          $('#btn-'+key).toggleClass("btn-warning");
+          $('#btn-'+key).toggleClass("btn-primary");
+          $('#btn-'+key).html("Register risk");
+          $('#btn-'+key).data("mark", 1);
+        },
+        error: function(xhr, statusText, errorThrown){
+          console.log(arguments);
+        }
+      });
+    }
+  }
